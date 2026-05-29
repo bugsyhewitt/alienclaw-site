@@ -4,6 +4,43 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* AlienClaw brand tokens */
+@theme {
+  --color-slime: #C8E731;
+  --color-slime-dark: #A8C420;
+  --color-slime-light: #D8F040;
+  --color-slime-glow: #C8E731;
+  --color-canvas: #FAFAF8;
+  --color-ink: #1A1A1A;
+  --color-muted-brand: #6B6B6B;
+  --font-sans: var(--font-inter), system-ui, sans-serif;
+  --font-display: var(--font-space-grotesk), system-ui, sans-serif;
+  --animate-slime-drip: slime-drip 4s ease-in-out infinite;
+  --animate-ufo-bob: ufo-bob 6s ease-in-out infinite;
+  --animate-hero-text: hero-text-in 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+  --animate-hero-mascot: hero-mascot-in 0.7s cubic-bezier(0.34, 1.56, 0.64, 1) 0.1s forwards;
+}
+
+@keyframes slime-drip {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(3px); }
+}
+
+@keyframes ufo-bob {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-3px); }
+}
+
+@keyframes hero-text-in {
+  from { transform: translateY(20px); }
+  to   { transform: translateY(0); }
+}
+
+@keyframes hero-mascot-in {
+  from { transform: translateY(-20px); }
+  to   { transform: translateY(0); }
+}
+
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
@@ -126,5 +163,16 @@
   }
   html {
     @apply font-sans;
+  }
+}
+
+/* Respect prefers-reduced-motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }
