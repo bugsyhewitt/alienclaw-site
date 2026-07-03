@@ -7,26 +7,58 @@ import { Badge } from "@/components/ui/badge";
 
 interface Genome {
   rank?: number;
-  genome_id: string;
-  martian_type: string;
-  fitness_score: number;
-  generation: number;
+  genome: string;
+  fitness: number;
+  submission_id: string;
   submitted_at: string;
-  genome_string?: string;
+  leaderboard_name: string;
+  generation?: number;
+}
+
+interface MartianType {
+  name: string;
+  current_top_fitness: number;
+  submission_count: number;
+  last_submission_at: string;
 }
 
 const API_URL = "https://api.alienclaw.net";
-const MARTIAN_TYPES = ["search_text_alone", "search_text_with_context", "full_synthesis"];
+const BASE_TYPES = [
+  "compute",
+  "file_read",
+  "file_write",
+  "url_fetch",
+  "http_get",
+  "search_text",
+  "extract_json",
+  "web_search",
+];
 
 export default function LeaderboardFull() {
-  const [activeType, setActiveType] = useState(MARTIAN_TYPES[0]);
+  const [types, setTypes] = useState<string[]>(BASE_TYPES);
+  const [activeType, setActiveType] = useState(BASE_TYPES[0]);
   const [genomes, setGenomes] = useState<Genome[] | null>(null);
   const [loading, setLoading] = useState(true);
   const [tooltip, setTooltip] = useState<{ id: string; text: string } | null>(null);
 
   useEffect(() => {
+    fetch(`${API_URL}/v1/martian-types`)
+      .then((r) => r.json())
+      .then((data) => {
+        const active: string[] = (data.martian_types ?? [])
+          .filter((t: MartianType) => t.submission_count > 0)
+          .map((t: MartianType) => t.name);
+        if (active.length > 0) {
+          setTypes(active);
+          setActiveType(active[0]);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  useEffect(() => {
     setLoading(true);
-    fetch(`${API_URL}/v1/genomes/top?martian_type=${activeType}&limit=50`)
+    fetch(`${API_URL}/v1/genomes/top?martian_type=${activeType}&n=50`)
       .then((r) => r.json())
       .then((data) => {
         setGenomes(
@@ -47,7 +79,7 @@ export default function LeaderboardFull() {
     <div>
       {/* Type tabs */}
       <div className="flex gap-2 flex-wrap mb-8">
-        {MARTIAN_TYPES.map((t) => (
+        {types.map((t) => (
           <button
             key={t}
             onClick={() => setActiveType(t)}
@@ -65,7 +97,7 @@ export default function LeaderboardFull() {
       <div className="bg-white rounded-xl border border-black/8 overflow-hidden shadow-sm relative">
         <div className="grid grid-cols-[2rem_1fr_auto_auto_auto] gap-4 px-6 py-3 border-b border-black/5 text-xs font-semibold text-muted-brand uppercase tracking-wide">
           <span>#</span>
-          <span>Genome ID</span>
+          <span>Operator</span>
           <span>Fitness</span>
           <span className="hidden sm:block">Gen</span>
           <span className="hidden md:block">Submitted</span>
@@ -84,17 +116,17 @@ export default function LeaderboardFull() {
         ) : genomes && genomes.length > 0 ? (
           genomes.map((g, i) => (
             <div
-              key={g.genome_id}
+              key={g.submission_id}
               className="grid grid-cols-[2rem_1fr_auto_auto_auto] gap-4 px-6 py-4 border-b border-black/4 last:border-0 hover:bg-slime/4 transition-colors relative cursor-default"
               style={{
                 opacity: 0,
                 animation: `fadeInUp 0.4s ease-out ${Math.min(i * 40, 400)}ms forwards`,
               }}
               onMouseEnter={() =>
-                g.genome_string &&
+                g.genome &&
                 setTooltip({
-                  id: g.genome_id,
-                  text: g.genome_string.slice(0, 32) + "…",
+                  id: g.submission_id,
+                  text: g.genome.slice(0, 32) + "…",
                 })
               }
               onMouseLeave={() => setTooltip(null)}
@@ -102,16 +134,21 @@ export default function LeaderboardFull() {
               <span className="text-sm font-semibold text-muted-brand flex items-center">
                 {g.rank === 1 ? <Trophy size={14} className="text-yellow-500" /> : g.rank}
               </span>
-              <span className="font-mono text-sm text-ink truncate">{g.genome_id}</span>
+              <span className="font-mono text-sm text-ink truncate">
+                {g.leaderboard_name}{" "}
+                <span className="text-muted-brand">{g.submission_id.slice(0, 12)}</span>
+              </span>
               <Badge variant="outline" className="text-xs border-slime/40 text-slime-dark font-mono">
-                {g.fitness_score.toFixed(3)}
+                {g.fitness.toFixed(3)}
               </Badge>
-              <span className="text-sm text-muted-brand hidden sm:block">G{g.generation}</span>
+              <span className="text-sm text-muted-brand hidden sm:block">
+                {g.generation != null ? `G${g.generation}` : "—"}
+              </span>
               <span className="text-xs text-muted-brand hidden md:block">
                 {new Date(g.submitted_at).toLocaleDateString()}
               </span>
 
-              {tooltip?.id === g.genome_id && (
+              {tooltip?.id === g.submission_id && (
                 <div className="absolute left-6 top-full mt-1 z-10 bg-ink text-slime font-mono text-xs px-3 py-2 rounded-md shadow-lg whitespace-nowrap">
                   {tooltip.text}
                 </div>

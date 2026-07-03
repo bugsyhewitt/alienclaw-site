@@ -7,21 +7,46 @@ import { Badge } from "@/components/ui/badge";
 
 interface Genome {
   rank?: number;
-  genome_id: string;
-  martian_type: string;
-  fitness_score: number;
-  generation: number;
+  genome: string;
+  fitness: number;
+  submission_id: string;
   submitted_at: string;
+  leaderboard_name: string;
+  generation?: number;
+}
+
+interface MartianType {
+  name: string;
+  current_top_fitness: number;
+  submission_count: number;
+  last_submission_at: string;
 }
 
 const API_URL = "https://api.alienclaw.net";
 
+const typeLabel = (t: string) =>
+  t.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+
 export default function LeaderboardWidget() {
   const [genomes, setGenomes] = useState<Genome[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const [activeType, setActiveType] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch(`${API_URL}/v1/genomes/top?martian_type=search_text_alone&limit=5`)
+    fetch(`${API_URL}/v1/martian-types`)
+      .then((r) => r.json())
+      .then((data) => {
+        const types: MartianType[] = data.martian_types ?? [];
+        const top = types.reduce<MartianType | null>(
+          (best, t) =>
+            !best || t.submission_count > best.submission_count ? t : best,
+          null
+        );
+        const type =
+          top && top.submission_count > 0 ? top.name : "compute_alone";
+        setActiveType(type);
+        return fetch(`${API_URL}/v1/genomes/top?martian_type=${type}&n=5`);
+      })
       .then((r) => r.json())
       .then((data) => {
         const rows = (data.genomes ?? []).map(
@@ -47,6 +72,11 @@ export default function LeaderboardWidget() {
             <h2 className="font-display font-bold text-ink text-3xl md:text-4xl">
               Live Leaderboard
             </h2>
+            {activeType && (
+              <p className="text-sm text-muted-brand mt-2">
+                Top genomes · {typeLabel(activeType)}
+              </p>
+            )}
           </div>
           <Link
             href="/leaderboard/"
@@ -60,7 +90,7 @@ export default function LeaderboardWidget() {
           {/* Table header */}
           <div className="grid grid-cols-[2rem_1fr_auto_auto] gap-4 px-6 py-3 border-b border-black/5 text-xs font-semibold text-muted-brand uppercase tracking-wide">
             <span>#</span>
-            <span>Genome ID</span>
+            <span>Operator</span>
             <span>Fitness</span>
             <span className="hidden sm:block">Gen</span>
           </div>
@@ -81,7 +111,7 @@ export default function LeaderboardWidget() {
           ) : genomes && genomes.length > 0 ? (
             genomes.map((g, i) => (
               <div
-                key={g.genome_id}
+                key={g.submission_id}
                 className="grid grid-cols-[2rem_1fr_auto_auto] gap-4 px-6 py-4 border-b border-black/4 last:border-0 hover:bg-slime/4 transition-colors"
                 style={{
                   opacity: 0,
@@ -95,15 +125,18 @@ export default function LeaderboardWidget() {
                     g.rank
                   )}
                 </span>
-                <span className="font-mono text-sm text-ink truncate">{g.genome_id.slice(0, 12)}…</span>
+                <span className="font-mono text-sm text-ink truncate">
+                  {g.leaderboard_name}{" "}
+                  <span className="text-muted-brand">{g.submission_id.slice(0, 12)}</span>
+                </span>
                 <Badge
                   variant="outline"
                   className="text-xs border-slime/40 text-slime-dark font-mono"
                 >
-                  {g.fitness_score.toFixed(3)}
+                  {g.fitness.toFixed(3)}
                 </Badge>
                 <span className="text-sm text-muted-brand hidden sm:block">
-                  G{g.generation}
+                  {g.generation != null ? `G${g.generation}` : "—"}
                 </span>
               </div>
             ))
