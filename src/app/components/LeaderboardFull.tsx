@@ -38,38 +38,55 @@ export default function LeaderboardFull() {
   const [types, setTypes] = useState<string[]>(BASE_TYPES);
   const [activeType, setActiveType] = useState(BASE_TYPES[0]);
   const [genomes, setGenomes] = useState<Genome[] | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loadedType, setLoadedType] = useState<string | null>(null);
   const [tooltip, setTooltip] = useState<{ id: string; text: string } | null>(null);
+
+  // Loading is derived: the genomes on screen aren't for the active tab yet.
+  const loading = loadedType !== activeType;
 
   useEffect(() => {
     fetch(`${API_URL}/v1/martian-types`)
       .then((r) => r.json())
       .then((data) => {
-        const active: string[] = (data.martian_types ?? [])
+        // Always show the 8 base types; append any populated non-base types;
+        // order populated types first (most submissions first).
+        const populated: string[] = (data.martian_types ?? [])
           .filter((t: MartianType) => t.submission_count > 0)
+          .sort(
+            (a: MartianType, b: MartianType) =>
+              b.submission_count - a.submission_count
+          )
           .map((t: MartianType) => t.name);
-        if (active.length > 0) {
-          setTypes(active);
-          setActiveType(active[0]);
+        const rest = BASE_TYPES.filter((t) => !populated.includes(t));
+        const merged = [...populated, ...rest];
+        setTypes(merged);
+        if (populated.length > 0) {
+          setActiveType(merged[0]);
         }
       })
       .catch(() => {});
   }, []);
 
   useEffect(() => {
-    setLoading(true);
-    fetch(`${API_URL}/v1/genomes/top?martian_type=${activeType}&n=50`)
+    const type = activeType;
+    let ignore = false;
+    fetch(`${API_URL}/v1/genomes/top?martian_type=${type}&n=50`)
       .then((r) => r.json())
       .then((data) => {
+        if (ignore) return;
         setGenomes(
           (data.genomes ?? []).map((g: Genome, i: number) => ({ ...g, rank: i + 1 }))
         );
-        setLoading(false);
+        setLoadedType(type);
       })
       .catch(() => {
+        if (ignore) return;
         setGenomes([]);
-        setLoading(false);
+        setLoadedType(type);
       });
+    return () => {
+      ignore = true;
+    };
   }, [activeType]);
 
   const typeLabel = (t: string) =>
